@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bgmanualconfig"
+    tools:context=".manualconfigClasses.ManualConfigActivity">
+
+    <TextView
+        android:id="@+id/textView3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="76dp"
+        android:layout_marginBottom="96dp"
+        android:text="Column :"
+        android:textAppearance="@style/TextAppearance.AppCompat.Large"
+        app:layout_constraintBottom_toTopOf="@+id/hexcode"
+        app:layout_constraintEnd_toStartOf="@+id/columnno"
+        app:layout_constraintTop_toBottomOf="@+id/textViewManual" />
+
+    <TextView
+        android:id="@+id/textViewManual"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="50dp"
+        android:layout_marginTop="117dp"
+        android:fontFamily="sans-serif-condensed"
+        android:text="@string/manualtext"
+        android:textSize="30sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <EditText
+        android:id="@+id/rowno"
+        android:layout_width="87dp"
+        android:layout_height="43dp"
+        android:layout_marginTop="74dp"
+        android:layout_marginBottom="85dp"
+        android:ems="10"
+        android:hint="(1-15)"
+        android:inputType="number"
+        android:singleLine="false"
+        android:textAppearance="@style/TextAppearance.AppCompat.Large"
+        app:layout_constraintBottom_toTopOf="@+id/hexcode"
+        app:layout_constraintStart_toEndOf="@+id/textView"
+        app:layout_constraintTop_toBottomOf="@+id/textViewManual" />
+
+    <EditText
+        android:id="@+id/columnno"
+        android:layout_width="87dp"
+        android:layout_height="43dp"
+        android:layout_marginTop="74dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="85dp"
+        android:ems="10"
+        android:hint="(1-16)"
+        android:inputType="number"
+        android:textAppearance="@style/TextAppearance.AppCompat.Large"
+        app:layout_constraintBottom_toTopOf="@+id/hexcode"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textViewManual" />
+
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="76dp"
+        android:layout_marginBottom="98dp"
+        android:text="Row :"
+        android:textAppearance="@style/TextAppearance.AppCompat.Large"
+        app:layout_constraintBottom_toTopOf="@+id/textView5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textViewManual" />
+
+    <ImageView
+        android:id="@+id/hexbirdy"
+        android:layout_width="39dp"
+        android:layout_height="29dp"
+        android:layout_marginEnd="79dp"
+        android:layout_marginBottom="38dp"
+        android:background="#80deea"
+        app:layout_constraintBottom_toTopOf="@+id/gobutton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:srcCompat="@drawable/birdy" />
+
+    <TextView
+        android:id="@+id/textView5"
+        android:layout_width="76dp"
+        android:layout_height="27dp"
+        android:layout_marginStart="48dp"
+        android:layout_marginBottom="342dp"
+        android:text="Hex :  #"
+        android:textAppearance="@style/TextAppearance.AppCompat.Large"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <EditText
+        android:id="@+id/hexcode"
+        android:layout_width="138dp"
+        android:layout_height="40dp"
+        android:layout_marginStart="118dp"
+        android:layout_marginBottom="331dp"
+        android:ems="10"
+        android:inputType="textPersonName"
+        android:text="80deea"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <Button
+        android:id="@+id/gobutton"
+        android:layout_width="66dp"
+        android:layout_height="32dp"
+        android:layout_marginEnd="19dp"
+        android:layout_marginBottom="26dp"
+        android:background="@color/birdycolor"
+        android:onClick="onGoButtonClick"
+        android:text="go"
+        app:layout_constraintBottom_toTopOf="@+id/savebutton"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <Button
+        android:id="@+id/savebutton"
+        android:layout_width="66dp"
+        android:layout_height="23dp"
+        android:layout_marginEnd="19dp"
+        android:layout_marginBottom="6dp"
+        android:background="@color/birdycolor"
+        android:text="@string/manualsave"
+        android:onClick="onSaveButtonClick"
+        app:layout_constraintBottom_toTopOf="@+id/openbutton"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <Button
+        android:id="@+id/openbutton"
+        android:layout_width="66dp"
+        android:layout_height="23dp"
+        android:layout_marginEnd="19dp"
+        android:layout_marginBottom="193dp"
+        android:background="@color/birdycolor"
+        android:text="@string/manualsaved"
+        android:onClick="onOpenButtonPressed"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <TextView
+        android:id="@+id/pixelCount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginBottom="270dp"
+        android:text="Affected Pixels: 0"
+        android:textAppearance="@style/TextAppearance.AppCompat.Small"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <Button
+        android:id="@+id/clearbutton"
+        android:layout_width="83dp"
+        android:layout_height="25dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="12dp"
+        android:background="@color/birdycolor"
+        android:text="CLEAR ALL"
+        android:onClick="onClearButtonPressed"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/pixelCount" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

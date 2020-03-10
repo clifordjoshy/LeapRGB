@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/snake_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/snakecolor"
+    tools:context=".snakeClasses.SnakeActivity">
+
+    <Button
+        android:id="@+id/beginSnake"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="140dp"
+        android:layout_marginEnd="30dp"
+        android:background="@color/snakecolor2"
+        android:onClick="beginSnake"
+        android:text="@string/beginbutton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/imageView" />
+
+    <ImageView
+        android:id="@+id/downarrow"
+        android:layout_width="75dp"
+        android:layout_height="75dp"
+        android:onClick="onArrowKeyPressed"
+        android:visibility="invisible"
+        app:layout_constraintEnd_toEndOf="@id/uparrow"
+        app:layout_constraintTop_toBottomOf="@+id/rightarrow"
+        app:srcCompat="@drawable/downarrow" />
+
+    <ImageView
+        android:id="@+id/uparrow"
+        android:layout_width="75dp"
+        android:layout_height="75dp"
+        android:layout_marginTop="38dp"
+        android:onClick="onArrowKeyPressed"
+        android:visibility="invisible"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/radioGroup"
+        app:layout_constraintTop_toBottomOf="@id/imageView"
+        app:srcCompat="@drawable/uparrow" />
+
+    <ImageView
+        android:id="@+id/rightarrow"
+        android:layout_width="75dp"
+        android:layout_height="75dp"
+        android:layout_marginTop="112dp"
+        android:onClick="onArrowKeyPressed"
+        android:visibility="invisible"
+        app:layout_constraintStart_toEndOf="@id/uparrow"
+        app:layout_constraintTop_toBottomOf="@id/imageView"
+        app:srcCompat="@drawable/rightarrow" />
+
+    <ImageView
+        android:id="@+id/leftarrow"
+        android:layout_width="75dp"
+        android:layout_height="75dp"
+        android:layout_marginTop="112dp"
+        android:onClick="onArrowKeyPressed"
+        android:visibility="invisible"
+        app:layout_constraintEnd_toStartOf="@id/uparrow"
+        app:layout_constraintTop_toBottomOf="@id/imageView"
+        app:srcCompat="@drawable/leftarrow" />
+
+    <RadioGroup
+        android:id="@+id/radioGroup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="80dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textViewSnake">
+
+        <RadioButton
+            android:id="@+id/arrowChoice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="@string/arrowchoice"
+            android:textSize="20sp" />
+
+        <RadioButton
+            android:id="@+id/gestureChoice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/gesturechoice"
+            android:textSize="20sp" />
+    </RadioGroup>
+
+    <TextView
+        android:id="@+id/textViewSnake"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="50dp"
+        android:layout_marginTop="20dp"
+        android:text="@string/controlheader"
+        android:textSize="30sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/imageView" />
+
+    <com.example.leaprgb.snakeClasses.SwipeView
+        android:id="@+id/swipeView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="30dp"
+        android:background="@color/snakecolor2"
+        android:gravity="center"
+        android:text="(Swipe Here)"
+        android:textColor="@color/snakecolor"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/imageView" />
+
+    <ImageView
+        android:id="@+id/imageView"
+        android:layout_width="360dp"
+        android:layout_height="360dp"
+        android:layout_marginTop="30dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.49"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/snakealpha" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

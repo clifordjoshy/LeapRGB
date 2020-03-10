@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#008577</color>
+    <color name="colorPrimaryDark">#00574B</color>
+    <color name="colorAccent">#961BD8</color>
+
+    <color name="activitybgdefault">#fafafa</color>
+
+    <color name="sliderbg">#E040FB</color>
+
+    <color name="birdycolor">#80deea</color>
+
+    <color name="floodred">#ff0000</color>
+    <color name="floodblue">#0000ff</color>
+    <color name="floodyellow">#ffff00</color>
+    <color name="floodgreen">#00ff00</color>
+    <color name="floodviolet">#ff00ff</color>
+    <color name="floodwhite">#ffffff</color>
+
+    <color name="flooditcolor">#FFECB3</color>
+    <color name="flooditcolor2">#FFC107</color>
+    <color name="snakecolor">#8BC34A</color>
+    <color name="snakecolor2">#388E3C</color>
+    <color name="pongcolor2">#ff4b4c</color>
+    <color name="pongcolor">#F8BBD0</color>
+    <color name="tetriscolor">#e07aff</color>
+    <color name="tetriscolor2">#9C27B0</color>
+
+
+</resources>
