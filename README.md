@@ -1,4 +1,8 @@
 # LeapRGB
-A project using NodeMCU and WS2811 addressable LEDs
+A mini-arcade to play fun little games such as Snake, Tetris, Flood-It and Pong
 
-Control a 16 x 15 LED grid using an app 
+Made using a NodeMCU and WS2811 addressable LEDs
+App using Android Studio
+Arduino Code using Arduino IDE
+
+-Leap
