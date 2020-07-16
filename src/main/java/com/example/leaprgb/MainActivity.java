@@ -255,6 +255,7 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
         if(LED.isConnected(false)){
             LED.clear();
+            LED.show();
             LED.endconnection();
         }
     }

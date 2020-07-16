@@ -23,11 +23,9 @@
         android:id="@+id/anitext1"
         android:layout_width="0dp"
         android:layout_height="21dp"
-        android:layout_marginStart="9dp"
-        android:layout_marginEnd="5dp"
         android:text="Animation #1"
-        app:layout_constraintEnd_toStartOf="@+id/anitext2"
-        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="@+id/animation1button"
+        app:layout_constraintStart_toStartOf="@+id/animation1button"
         app:layout_constraintTop_toBottomOf="@+id/animation1button" />
 
     <pl.droidsonroids.gif.GifImageButton
@@ -47,10 +45,33 @@
         android:id="@+id/anitext2"
         android:layout_width="0dp"
         android:layout_height="21dp"
-        android:layout_marginStart="5dp"
-        android:layout_marginEnd="9dp"
         android:text="Animation #2"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/anitext1"
+        app:layout_constraintEnd_toEndOf="@+id/animation2button"
+        app:layout_constraintStart_toStartOf="@+id/animation2button"
         app:layout_constraintTop_toBottomOf="@+id/animation2button" />
+
+    <TextView
+        android:id="@+id/rendertext"
+        android:layout_width="0dp"
+        android:layout_height="21dp"
+        android:text="Render Text"
+        app:layout_constraintEnd_toEndOf="@+id/renderbutton"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="@+id/renderbutton"
+        app:layout_constraintTop_toBottomOf="@+id/renderbutton" />
+
+    <TextView
+        android:id="@+id/renderbutton"
+        android:layout_width="0dp"
+        android:layout_height="185dp"
+        android:layout_marginTop="38dp"
+        android:text="TEXT"
+        android:textColor="#202020"
+        android:gravity="center"
+        android:padding="30dp"
+        app:autoSizeTextType="uniform"
+        android:onClick="onAnimationClick"
+        app:layout_constraintEnd_toEndOf="@+id/animation1button"
+        app:layout_constraintStart_toStartOf="@+id/animation1button"
+        app:layout_constraintTop_toBottomOf="@+id/anitext1" />
 </androidx.constraintlayout.widget.ConstraintLayout>

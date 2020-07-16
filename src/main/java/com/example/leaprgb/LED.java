@@ -14,6 +14,7 @@ public abstract class LED {
     private static String ESPAddress = "";
     private static boolean isConnected = false;
     static private WebSocketClient webSocketClient;
+    static private String message = "";
 
     public static boolean isConnected(boolean doConnect){
         if(isConnected)
@@ -73,29 +74,44 @@ public abstract class LED {
 
     public static void setlight(int row, int column, String hex){
         String msgtoserver = "setlight/" + row + "/" + column + "/" + hex;
-        webSocketClient.send(msgtoserver);
+        message += msgtoserver + "&";
     }
 
     static void setoff(int row, int column){
         String msgtoserver = "setoff/" + row + "/" + column;
-        webSocketClient.send(msgtoserver);
+        message += msgtoserver + "&";
     }
 
     public static void show(){
-        webSocketClient.send("show");
+        while(!"".equals(message)){
+            if(message.length() > 300) {
+                int split_ind;
+                for (split_ind = 300; split_ind > 0; --split_ind) {
+                    if (message.charAt(split_ind) == '&')
+                        break;
+                }
+                sendMessage(message.substring(0, split_ind));
+                message = message.substring(split_ind + 1);
+            }
+            else {
+                sendMessage(message + "show");
+                message = "";
+            }
+        }
     }
 
     public static void clear(){
-        webSocketClient.send("clear");
+        message += "clear&";
     }
 
     public static void clearrow(int row, int columnStart, int columnEnd){
         String msgtoserver = "clearrow/" + row + "/" + columnStart + "/" + columnEnd;
-        webSocketClient.send(msgtoserver);
+        message += msgtoserver + "&";
     }
 
-    public static void sendMessage(String message){
-        webSocketClient.send(message);
+    public static void sendMessage(String msg){
+        Log.i("mylog "+msg.length(), msg);
+        webSocketClient.send(msg);
     }
 
     private static MainActivity referenceToMainActivity;

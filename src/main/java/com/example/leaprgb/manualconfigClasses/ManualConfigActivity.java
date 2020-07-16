@@ -365,6 +365,7 @@ public class ManualConfigActivity extends AppCompatActivity {
     public void onClearButtonPressed(View view) {
         if (LED.isConnected(true)) {
             LED.clear();
+            LED.show();
             pixelCount.setText("Affected Pixels: 0");
             pointBank.clear();
         }
@@ -383,7 +384,10 @@ public class ManualConfigActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if(LED.isConnected(false))
+        if(LED.isConnected(false)) {
             LED.clear();
+            LED.show();
+        }
+
     }
 }

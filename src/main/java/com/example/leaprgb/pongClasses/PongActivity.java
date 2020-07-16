@@ -145,7 +145,10 @@ public class PongActivity extends AppCompatActivity implements LoaderManager.Loa
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if(LED.isConnected(false))
+        if(LED.isConnected(false)) {
             LED.clear();
+            LED.show();
+        }
+
     }
 }

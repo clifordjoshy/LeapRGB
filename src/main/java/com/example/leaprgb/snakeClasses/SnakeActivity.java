@@ -90,10 +90,10 @@ public class SnakeActivity extends AppCompatActivity implements LoaderManager.Lo
 
             //enable the view needed
             if(arrowButton.isChecked()){
-                ImageView uparrow = (ImageView) findViewById(R.id.uparrow);
-                ImageView downarrow = (ImageView) findViewById(R.id.downarrow);
-                ImageView leftarrow = (ImageView) findViewById(R.id.leftarrow);
-                ImageView rightarrow = (ImageView) findViewById(R.id.rightarrow);
+                ImageView uparrow = findViewById(R.id.uparrow);
+                ImageView downarrow = findViewById(R.id.downarrow);
+                ImageView leftarrow = findViewById(R.id.leftarrow);
+                ImageView rightarrow = findViewById(R.id.rightarrow);
 
                 transition.addTarget(uparrow);
                 transition.addTarget(leftarrow);
@@ -169,7 +169,9 @@ public class SnakeActivity extends AppCompatActivity implements LoaderManager.Lo
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if(LED.isConnected(false))
-           LED.clear();
+        if(LED.isConnected(false)) {
+            LED.clear();
+            LED.show();
+        }
     }
 }

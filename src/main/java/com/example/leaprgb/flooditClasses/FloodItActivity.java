@@ -156,6 +156,7 @@ public class FloodItActivity extends AppCompatActivity {
 
         if(turnCounter == TURNMAX) {  //GAME OVER
             LED.clear();
+            LED.show();
             int i, j;
             boolean hasWon = true;
             for(i = 0; i < DIMENSION; ++i)
@@ -276,18 +277,21 @@ public class FloodItActivity extends AppCompatActivity {
 
     private void setAllToCurrent(){
         int i, j;
-        for(i = 0; i < DIMENSION; ++i)
-            for(j = 0; j < DIMENSION; ++j)
-                if(field[i][j].isFlooded)
-                    LED.setlight(i+1, j+1, currentcolor);
-        SystemClock.sleep(50);
+        for(i = 0; i < DIMENSION; ++i) {
+            for (j = 0; j < DIMENSION; ++j) {
+                if (field[i][j].isFlooded)
+                    LED.setlight(i + 1, j + 1, currentcolor);
+            }
+        }
         LED.show();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if(LED.isConnected(false))
+        if(LED.isConnected(false)) {
             LED.clear();
+            LED.show();
+        }
     }
 }

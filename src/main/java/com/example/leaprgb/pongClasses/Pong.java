@@ -52,7 +52,6 @@ public class Pong extends AsyncTaskLoader<Integer> {
 
         //MAIN GAME LOOP
         while(true){
-            SystemClock.sleep(5);  //process reqs
             LED.show();
             SystemClock.sleep(DELAY);
             turnCounter++;
@@ -153,6 +152,7 @@ public class Pong extends AsyncTaskLoader<Integer> {
 
         SystemClock.sleep(50);
         LED.clear();
+        LED.show();
         return score;
     }
 

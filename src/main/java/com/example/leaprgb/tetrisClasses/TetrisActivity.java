@@ -128,7 +128,9 @@ public class TetrisActivity extends AppCompatActivity implements LoaderManager.L
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if(LED.isConnected(false))
+        if(LED.isConnected(false)) {
             LED.clear();
+            LED.show();
+        }
     }
 }

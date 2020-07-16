@@ -3,49 +3,54 @@
 #include<ESP8266WiFi.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+#define get_var(v) pgm_read_byte(v)
 
 //FILL ALL OF THESE VARIABLES ACCORDING TO SETUP
-const char *MYSSID = "", *PASSWORD = "", *DELIMITER = "/";
+const char *MYSSID = "", *PASSWORD = "", *SUB_DELIM = "/", *MAIN_DELIM = "&";
 const int DATAPIN = 5, SWITCHPIN = D2;
 const int COLUMNCOUNT = 16, ROWCOUNT=15, LEDCOUNT = ROWCOUNT*COLUMNCOUNT;
 const bool isConnectedAtTop = false, isConnectedAtLeft = true ;
 
-const int LEDBRIGHTNESS = 10, PRINTDELAY = 150;
+const int LEDBRIGHTNESS = 10, PRINT_DELAY = 150;
 
 /*
  NOTES
  * PASS THE HEXCODE WITHOUT '#' I.E ONLY THE HEX VALUE
  * DO THE WIRING ROWWISE ONLY
- * Defined Messages = [setlight, setoff, show, clear, clearrow]
+ * Defined Messages = [setlight, setoff, show, clear, clearrow, delay, render]
  * Format :- Call/Row/Column/Hex     (as needed)
 */
 
 //USER-DEFINED FUNCTIONS
 int handleCoordinates(int Row, int Column);
-void clearall();
+void clearAll();
 bool switchUpdateCheck();
 
-int handleDigitPrint(int digit,const int PRINTROW,  int printColumn, CRGB color, bool shouldSpace);
-void printToDisplay(const int number[][2], int count, const int PRINTROW, int printColumn, CRGB color, bool shouldSpace);
+byte* getCharacterImage(char c);
+int printToDisplay(byte* image, const int PRINT_ROW, const int PRINT_COLUMN, CRGB PRINT_COLOR);
 void shiftLeft();
 
 void clockModeMain();
 void drawClock();
-void handleDayPrint(int day, const int PRINTROW, int printColumn, const CRGB colorScheme[2]);
+void printDayOfWeek(int day, const int PRINT_ROW, int PRINT_COLUMN, const CRGB colorScheme[2]);
 
 void appModeMain();
 void drawApp();
 void printIP(IPAddress ip);
-void setlight();
-void setoff();
-void clearrow();
+void setLight(char *token_ptr);
+void setOff(char *token_ptr);
+void clearRow(char *token_ptr);
+void doDelay(char *token_ptr);
+void renderText(char *token_ptr); 
+int doSpacing(int currentColumn);
 
 void doAnimation1();
 void doAnimation2();
-void drawbox(int rowup, int rowdown, int colleft, int colright, CRGB color);
+void drawBox(int rowup, int rowdown, int colleft, int colright, CRGB color);
 
 //GLOBAL VARIABLES 
 const int MODE_APP = 0, MODE_CLOCK = 1;
+const int CHAR_WIDTH = 3, CHAR_HEIGHT = 5;
 int currentMode = MODE_CLOCK;
 CRGB leds[LEDCOUNT];
 WebSocketServer webSocketServer;
@@ -57,6 +62,32 @@ void setup() {
 	
 	pinMode(SWITCHPIN, INPUT_PULLUP);
 	
+	connectToWifi();
+}
+
+void loop(){
+	if(WiFi.status() != WL_CONNECTED){	//if connection lost
+		clearAll();
+		connectToWifi();
+	}
+		
+	switch(currentMode){
+		case MODE_APP:
+			appModeMain();
+			break;
+		case MODE_CLOCK:
+			clockModeMain();
+			break;
+	}
+	
+	for(int i=0; i < COLUMNCOUNT; ++i){ 
+		shiftLeft();
+		FastLED.show();
+		delay(5);
+	}
+}
+
+void connectToWifi(){
 	WiFi.begin(MYSSID, PASSWORD);
 
 	int i; 
@@ -75,24 +106,7 @@ void setup() {
 	FastLED.show();
 	delay(500);   
 
-	clearall();
-}
-
-void loop(){
-	switch(currentMode){
-		case MODE_APP:
-			appModeMain();
-			break;
-		case MODE_CLOCK:
-			clockModeMain();
-			break;
-	}
-	
-	for(int i=0; i < COLUMNCOUNT; ++i){ 
-		shiftLeft();
-		FastLED.show();
-		delay(5);
-	}
+	clearAll();
 }
 
 void clockModeMain(){
@@ -103,13 +117,12 @@ void clockModeMain(){
 		return;
 	}
 
-	clearall();
+	clearAll();
     
 	const int UTC_OFFSET_MS = 5.5 * 60 * 60;		//timezone [UTC + 5:30]
 	const int TIMEROW = 2, DAYROW = 10, COLUMN_DAY = 1, COLUMN_DATE[2] = {10, 13}, COLUMN_HOURS[2] = {1, 4}, COLUMN_COLON = 8, COLUMN_MINUTES[2] = {10,13};
 	const CRGB colorTime[] = {CRGB::Orange, CRGB::Blue}, colorTimeSub = CRGB::Chartreuse; 
-	
-	const int colon[][2] = {{1,0}, {3,0}};
+	bool isColonVisible = true;
 	
 	WiFiUDP ntpUDP;
 	NTPClient timeClient(ntpUDP, "pool.ntp.org", UTC_OFFSET_MS);
@@ -118,7 +131,7 @@ void clockModeMain(){
 	String date = "";
 	timeClient.begin();
 	
-	printToDisplay(colon, 2, TIMEROW, COLUMN_COLON, colorTimeSub, false);
+	printToDisplay(getCharacterImage(':'), TIMEROW, COLUMN_COLON, colorTimeSub);
 	int i;
 	for(i = 1;i <= COLUMNCOUNT; ++i)
 		leds[handleCoordinates(DAYROW-2, i)] = colorTimeSub;
@@ -128,28 +141,28 @@ void clockModeMain(){
 	while(currentMode == MODE_CLOCK){
 		timeClient.update();
 		if(timeDigits[0] != timeClient.getHours() / 10){			
-			timeDigits[0] = timeClient.getHours()/10;
-			handleDigitPrint(timeDigits[0], TIMEROW, COLUMN_HOURS[0], colorTime[0], false);
+			timeDigits[0] = timeClient.getHours()/10;      
+			printToDisplay(getCharacterImage(timeDigits[0]), TIMEROW, COLUMN_HOURS[0], colorTime[0]);
 		}
 		
 		if(timeDigits[1] != timeClient.getHours() % 10){	
 			timeDigits[1] = timeClient.getHours()%10;
-			handleDigitPrint(timeDigits[1], TIMEROW, COLUMN_HOURS[1], colorTime[1], false);
+			printToDisplay(getCharacterImage(timeDigits[1]), TIMEROW, COLUMN_HOURS[1], colorTime[1]);
 		}
 	
 		if(timeDigits[2] != timeClient.getMinutes() / 10){
 			timeDigits[2] = timeClient.getMinutes()/10;
-			handleDigitPrint(timeDigits[2], TIMEROW, COLUMN_MINUTES[0], colorTime[0], false);
+			printToDisplay(getCharacterImage(timeDigits[2]), TIMEROW, COLUMN_MINUTES[0], colorTime[0]);
 		}
 		
 		if(timeDigits[3] != timeClient.getMinutes() % 10){		
 			timeDigits[3] = timeClient.getMinutes()%10;
-			handleDigitPrint(timeDigits[3], TIMEROW, COLUMN_MINUTES[1], colorTime[1], false);
+			printToDisplay(getCharacterImage(timeDigits[3]), TIMEROW, COLUMN_MINUTES[1], colorTime[1]);
 		}
 		
 		if(dayDigit != timeClient.getDay()){
 			dayDigit = timeClient.getDay();
-			handleDayPrint(dayDigit, DAYROW, COLUMN_DAY, colorTime);
+			printDayOfWeek(dayDigit, DAYROW, COLUMN_DAY, colorTime);
 		}
 		
 		//YYYY-MM-DDT.....
@@ -158,12 +171,11 @@ void clockModeMain(){
 			int dateInt = date.toInt();
 			dateDigits[0] = dateInt/10;
 			dateDigits[1] = dateInt%10;
-			handleDigitPrint(dateDigits[0], DAYROW, COLUMN_DATE[0], colorTime[0], false);
-			handleDigitPrint(dateDigits[1], DAYROW, COLUMN_DATE[1], colorTime[1], false);
+			printToDisplay(getCharacterImage(dateDigits[0]), DAYROW, COLUMN_DATE[0], colorTime[0]);
+			printToDisplay(getCharacterImage(dateDigits[1]), DAYROW, COLUMN_DATE[1], colorTime[1]);
 		}
 		
-		delay(1000);
-		
+		delay(1000);		
 		switchUpdateCheck();
 	}
 }
@@ -176,7 +188,7 @@ void appModeMain() {
 		return;
 	}
 
-	clearall();
+	clearAll();
   
 	WiFiServer server(80);
 	WiFiClient client;
@@ -196,32 +208,45 @@ void appModeMain() {
 
 			// Communication with the client
 			String dataString;
-			char dataArray[30];
-		 
+      char *save_token_ptr;
+			char dataArray[300];
+			
 			while(client.connected()){
 				//Receive Data From Client
 				dataString = webSocketServer.getData(); 
 		  
 				if (dataString.length() > 0) {
 					//Handle the Received Data
-					dataString.toCharArray(dataArray, 30);
-
-					char* toCall = strtok(dataArray, DELIMITER);
+					dataString.toCharArray(dataArray, 300);
 					
-					if(strcmp(toCall, "setlight") == 0)
-						setlight();
-					else if(strcmp(toCall, "setoff") == 0)
-						setoff();
-					else if(strcmp(toCall, "show") == 0)
-						FastLED.show();
-					else if(strcmp(toCall, "clear") == 0)
-						clearall();
-					else if(strcmp(toCall, "clearrow") ==0)
-						clearrow();
-					else if(strcmp(toCall, "animation1") ==0)
-						doAnimation1();
-					else if(strcmp(toCall, "animation2") ==0)
-						doAnimation2();
+					char* token = strtok_r(dataArray, MAIN_DELIM, &save_token_ptr);
+					
+					while (token != NULL) {
+
+            char *save_ptr_2;   ///to continue extracting from string
+						char* toCall = strtok_r(token, SUB_DELIM, &save_ptr_2);
+						
+						if(strcmp(toCall, "setlight") == 0)
+							setLight(save_ptr_2);
+						else if(strcmp(toCall, "setoff") == 0)
+							setOff(save_ptr_2);
+						else if(strcmp(toCall, "show") == 0)
+							FastLED.show();
+						else if(strcmp(toCall, "clear") == 0)
+							clearAll();
+						else if(strcmp(toCall, "clearrow") ==0)
+							clearRow(save_ptr_2);
+						else if(strcmp(toCall, "delay")==0)
+							doDelay(save_ptr_2);
+						else if(strcmp(toCall, "render")==0)
+							renderText(save_ptr_2);
+						else if(strcmp(toCall, "animation1") ==0)
+							doAnimation1();
+						else if(strcmp(toCall, "animation2") ==0)
+							doAnimation2();
+
+             token = strtok_r(NULL, MAIN_DELIM, &save_token_ptr);
+					} 
 				}
 				delay(5); //delay for receiving data
 				if(switchUpdateCheck()){
@@ -240,8 +265,8 @@ void appModeMain() {
 		if(notConnectedIterations > 150){
 			printIP(WiFi.localIP());
 			Serial.println("Done Printing IP");
-			delay(PRINTDELAY);
-			clearall();
+			delay(PRINT_DELAY);
+			clearAll();
 			notConnectedIterations = 0;
 		}   
 		delay(100);
@@ -249,101 +274,147 @@ void appModeMain() {
   server.close();
 }
 
+//Renders text in specified color
+void renderText(char *token_ptr){
+	const int TEXT_PRINTROW = 6;
+	char *text = strtok_r(NULL, SUB_DELIM, &token_ptr);
+	int hex = strtol(strtok_r(NULL, SUB_DELIM, &token_ptr), NULL, 16);  //base 16 conversion
+	CRGB color = hex;
+
+  while(true){
+    int currentColumn = 1;
+    char c = text[0];
+  	for(int i = 1; c != '\0'; c = text[i++]){
+  		if (c == ' '){
+        FastLED.show();
+        delay(PRINT_DELAY);
+        for(int r = 0; r < 3; ++r){
+    			currentColumn = doSpacing(currentColumn);
+          FastLED.show();
+          delay(PRINT_DELAY);
+        }
+  			continue;
+  		}
+  		int filled_lines = printToDisplay(getCharacterImage(c), TEXT_PRINTROW, currentColumn, color);
+  		currentColumn += filled_lines;
+  		currentColumn = doSpacing(currentColumn);
+  	}
+   
+    while(currentColumn > 1){
+      shiftLeft();
+      --currentColumn;
+      FastLED.show();
+      delay(PRINT_DELAY);
+    }
+
+    String dataString = webSocketServer.getData();
+      if(dataString.length() > 0) //if any thing is received
+        break;
+  }
+}
+
+//Handles delay
+void doDelay(char *token_ptr){
+	char* delay_chars = strtok_r(NULL, SUB_DELIM, &token_ptr);
+	int delay_val = atoi(delay_chars);
+	delay(delay_val);
+}
+
 //Receives the coordinate and color to light up an LED
-void setlight() {
-	int Row, Column, Hex;
+void setLight(char *token_ptr) {
+	int row, column, hex;
 	char *dataValue;
   
-	dataValue = strtok(NULL, DELIMITER);
-	Row = atoi(dataValue);
+	dataValue = strtok_r(NULL, SUB_DELIM, &token_ptr);
+	row = atoi(dataValue);
   
-	dataValue = strtok(NULL, DELIMITER);
-	Column = atoi(dataValue);
+	dataValue = strtok_r(NULL, SUB_DELIM, &token_ptr);
+	column = atoi(dataValue);
   
-	dataValue = strtok(NULL, DELIMITER);
-	Hex = strtol(dataValue, NULL, 16);  //base 16 conversion
+	dataValue = strtok_r(NULL, SUB_DELIM, &token_ptr);
+	hex = strtol(dataValue, NULL, 16);  //base 16 conversion
   
-	int ledno = handleCoordinates(Row, Column);
-	Serial.println(String(Row) + " " + String(Column) +" "+ String(Hex)+" LED No"+ledno);
-	leds[ledno] = Hex;
+	int ledno = handleCoordinates(row, column);
+	leds[ledno] = hex;
 }
 
 //Sets the LED at some coordinate to off
-void setoff() {
-	int Row, Column;
+void setOff(char *token_ptr) {
+	int row, column;
 	char *dataValue;
   
-	dataValue = strtok(NULL, DELIMITER);
-	Row = atoi(dataValue);
+	dataValue = strtok_r(NULL, SUB_DELIM, &token_ptr);
+	row = atoi(dataValue);
   
-	dataValue = strtok(NULL, DELIMITER);
-	Column = atoi(dataValue);
+	dataValue = strtok_r(NULL, SUB_DELIM, &token_ptr);
+	column = atoi(dataValue);
   
-	int ledno = handleCoordinates(Row, Column);
-	Serial.println("Turned off"+String(Row)+" "+String(Column));
+	int ledno = handleCoordinates(row, column);
+	Serial.println("Turned off"+String(row)+" "+String(column));
 	leds[ledno] = CRGB::Black;
 }
 
-//Handles the Row and Column according to the wiring. Needed because wiring is L->R R->L ....
-int handleCoordinates(int Row, int Column){
+//Handles the Row and Column according to the wiring. Needed because wiring is L->R R->L .... [indexed fromm 1]
+int handleCoordinates(int row, int column){
 	int ledno;
  
 	if(isConnectedAtTop && isConnectedAtLeft){  //TL
-		if(Row%2)   //Odd Row i.e L->R row
-			ledno = (Row - 1) * COLUMNCOUNT + Column - 1;
+		if(row%2)   //Odd Row i.e L->R row
+			ledno = (row - 1) * COLUMNCOUNT + column - 1;
 		else        //Even Row i.e R->L row
-			ledno = Row * COLUMNCOUNT - Column;
+			ledno = row * COLUMNCOUNT - column;
 	}
 
 	else if(isConnectedAtTop && !isConnectedAtLeft){  //TR
-		if(Row%2)   //Odd Row i.e L->R row
-			ledno = Row * COLUMNCOUNT - Column;
+		if(row%2)   //Odd Row i.e L->R row
+			ledno = row * COLUMNCOUNT - column;
 		else        //Even Row i.e R->L row
-			ledno = (Row - 1) * COLUMNCOUNT + Column - 1;
+			ledno = (row - 1) * COLUMNCOUNT + column - 1;
     }
 
 	else if(!isConnectedAtTop && !isConnectedAtLeft){ //BR
-		if(Row%2)   //Odd Row i.e R->L row
-			ledno = (ROWCOUNT - Row) * COLUMNCOUNT + (COLUMNCOUNT - Column);
+		if(row%2)   //Odd Row i.e R->L row
+			ledno = (ROWCOUNT - row) * COLUMNCOUNT + (COLUMNCOUNT - column);
 		else        //Even Row i.e L->R row
-			ledno = (ROWCOUNT - Row) * COLUMNCOUNT + Column - 1;
+			ledno = (ROWCOUNT - row) * COLUMNCOUNT + column - 1;
     }
 
 	else{ //BL
-		if(Row%2)   //Odd Row i.e L->R row
-			ledno = (ROWCOUNT - Row) * COLUMNCOUNT + Column - 1;
+		if(row%2)   //Odd Row i.e L->R row
+			ledno = (ROWCOUNT - row) * COLUMNCOUNT + column - 1;
 		else        //Even Row i.e R->L row
-			ledno = (ROWCOUNT - Row) * COLUMNCOUNT + (COLUMNCOUNT - Column);  
+			ledno = (ROWCOUNT - row) * COLUMNCOUNT + (COLUMNCOUNT - column);  
     }
 	
 	return ledno;    
 }
 
 //Turns off all the LEDs
-void clearall(){
+void clearAll(){
 	for(int i = 0; i < LEDCOUNT; ++i)
 		leds[i] = CRGB::Black;
 	FastLED.show();
 	Serial.println("All cleared");
 }
 
-void clearrow(){
-	int Row, ColumnStart, ColumnEnd;
+//Clears a row between specified columns
+void clearRow(char *token_ptr){
+	int row, columnStart, columnEnd;
 	char *dataValue;
   
-	dataValue = strtok(NULL, DELIMITER);
-	Row = atoi(dataValue);
-	dataValue = strtok(NULL, DELIMITER);
-	ColumnStart = atoi(dataValue);
-	dataValue = strtok(NULL, DELIMITER);
-	ColumnEnd = atoi(dataValue);
+	dataValue = strtok_r(NULL, SUB_DELIM, &token_ptr);
+	row = atoi(dataValue);
+	dataValue = strtok_r(NULL, SUB_DELIM, &token_ptr);
+	columnStart = atoi(dataValue);
+	dataValue = strtok_r(NULL, SUB_DELIM, &token_ptr);
+	columnEnd = atoi(dataValue);
 
-	for(int i = ColumnStart; i <= ColumnEnd; ++i)
-		leds[handleCoordinates(Row, i)] = CRGB::Black;
+	for(int i = columnStart; i <= columnEnd; ++i)
+		leds[handleCoordinates(row, i)] = CRGB::Black;
 	FastLED.show();
 }
 
-void drawbox(int rowup, int rowdown, int colleft, int colright, CRGB color){
+void drawBox(int rowup, int rowdown, int colleft, int colright, CRGB color){
 	int i;
 	for(i = colleft; i <= colright; ++i){
 		leds[handleCoordinates(rowup,i)] = color;
@@ -358,19 +429,16 @@ void drawbox(int rowup, int rowdown, int colleft, int colright, CRGB color){
 
 void printIP(IPAddress ip){
 	const int IP_PRINTROW = 6;
-	const CRGB colorIP = CRGB::White;
-	
-	const int dot[][2] = {{4,0}};
+	const CRGB COLOR_IP = CRGB::White;
 
 	int currentColumn = 1;
 
-	clearall();
+	clearAll();
   
 	int i;
 	for(i = 0; i < 4; ++i){ //ip is 4 integers
-		int ipno =ip[i];
+		int ipno = ip[i];
 		int temp = 0;
-		
 		//reverse the number before passing to get digits
 		do{
 			temp = temp*10 + ipno%10;
@@ -380,159 +448,113 @@ void printIP(IPAddress ip){
 		ipno = temp;
     
 		while(ipno){
-			int  digit = ipno%10;
-			currentColumn = handleDigitPrint(digit, IP_PRINTROW, currentColumn, colorIP, true);  //returns updated currentColumn within the function
-			ipno = ipno / 10;
+			int digit = ipno%10;
+			printToDisplay(getCharacterImage(digit), IP_PRINTROW, currentColumn, COLOR_IP);
+			currentColumn += CHAR_WIDTH;
+      		ipno = ipno / 10;
+			currentColumn = doSpacing(currentColumn);
+			
 		}
 		
 		if(i<3){  //no dot at the end
-			printToDisplay(dot, 1, IP_PRINTROW, currentColumn, colorIP, true);
-			currentColumn += 2;
+			printToDisplay(getCharacterImage('.'), IP_PRINTROW, currentColumn, COLOR_IP);
+			++currentColumn;
+			currentColumn = doSpacing(currentColumn);
 		}
-	} 
-}
-
-int handleDigitPrint(int digit,const int PRINTROW, int printColumn, CRGB color, bool shouldSpace){
-	//(row,column form)
-	const static int number0[][2] = {{0,0},{0,1},{0,2},{1,0},{1,2},{2,0},{2,2},{3,0},{3,2},{4,0},{4,1},{4,2}};
-	const static int number1[][2] = {{0,1},{1,0},{1,1},{2,1},{3,1},{4,0},{4,1},{4,2}};
-	const static int number2[][2] = {{0,0},{0,1},{0,2},{1,2},{2,1},{3,0},{4,0},{4,1},{4,2}};
-	const static int number3[][2] = {{0,0},{0,1},{0,2},{1,2},{2,0},{2,1},{2,2},{3,2},{4,0},{4,1},{4,2}};
-	const static int number4[][2] = {{0,2},{1,1},{1,2},{2,0},{2,2},{3,0},{3,1},{3,2},{4,2}};
-	const static int number5[][2] = {{0,0},{0,1},{0,2},{1,0},{2,0},{2,1},{3,2},{4,0},{4,1}};
-	const static int number6[][2] = {{0,0},{0,1},{0,2},{1,0},{2,0},{2,1},{2,2},{3,0},{3,2},{4,0},{4,1},{4,2}};
-	const static int number7[][2] = {{0,0},{0,1},{0,2},{1,2},{2,1},{3,0},{4,0}};
-	const static int number8[][2] = {{0,0},{0,1},{0,2},{1,0},{1,2},{2,0},{2,1},{2,2},{3,0},{3,2},{4,0},{4,1},{4,2}};
-	const static int number9[][2] = {{0,0},{0,1},{0,2},{1,0},{1,2},{2,0},{2,1},{2,2},{3,2},{4,0},{4,1},{4,2}};
- 
-	const int NUMBERWIDTH = 3;
-	
-	switch(digit){
-		case 0: 
-			printToDisplay(number0, sizeof(number0)/sizeof(number0[0]), PRINTROW, printColumn, color, true);
-			break;
-		case 1: 
-			printToDisplay(number1, sizeof(number1)/sizeof(number1[0]), PRINTROW, printColumn, color, true);
-			break;
-		case 2: 
-			printToDisplay(number2, sizeof(number2)/sizeof(number2[0]), PRINTROW, printColumn, color, true);
-			break;
-		case 3: 
-			printToDisplay(number3, sizeof(number3)/sizeof(number3[0]), PRINTROW, printColumn, color, true);
-			break;
-		case 4: 
-			printToDisplay(number4, sizeof(number4)/sizeof(number4[0]), PRINTROW, printColumn, color, true);
-			break;
-		case 5: 
-			printToDisplay(number5, sizeof(number5)/sizeof(number5[0]), PRINTROW, printColumn, color, true);
-			break;
-		case 6: 
-			printToDisplay(number6, sizeof(number6)/sizeof(number6[0]), PRINTROW, printColumn, color, true);
-			break;
-		case 7: 
-			printToDisplay(number7, sizeof(number7)/sizeof(number7[0]), PRINTROW, printColumn, color, true);
-			break;
-		case 8: 
-			printToDisplay(number8, sizeof(number8)/sizeof(number8[0]), PRINTROW, printColumn, color, true);
-			break;
-		case 9: 
-			printToDisplay(number9, sizeof(number9)/sizeof(number9[0]), PRINTROW, printColumn, color, true);
-			break;
 	}
-	
-	return (printColumn + NUMBERWIDTH + (shouldSpace?1:0));
+	delay(2 * PRINT_DELAY);
 }
 
-void handleDayPrint(int day, const int PRINTROW, int printColumn, const CRGB colorScheme[2]){
-	const static int sunsatS[][2] = {{0,1},{0,2},{1,0},{2,0},{2,1},{2,2},{3,2},{4,0},{4,1}};
-	const static int suntueu[][2] = {{2,0},{2,2},{3,0},{3,2},{4,0},{4,1},{4,2}};
-	const static int mondayM[][2] = {{0,0},{0,2},{1,0},{1,1},{1,2},{2,0},{2,1},{2,2},{3,0},{3,2},{4,0},{4,2}};
-	const static int mondayo[][2] = {{2,0},{2,1},{2,2},{3,0},{3,2},{4,0},{4,1},{4,2}};
-	const static int tuethursT[][2] = {{0,0},{0,1},{0,2},{1,1},{2,1},{3,1},{4,1}};
-	const static int wednesdayW[][2] = {{0,0},{0,2},{1,0},{1,2},{2,0},{2,2},{3,0},{3,1},{3,2},{4,0},{4,2}};
-	const static int wednesdayd[][2] = {{0,2},{1,2},{2,0},{2,1},{2,2},{3,0},{3,2},{4,0},{4,1},{4,2}};
-	const static int thursdayh[][2] = {{0,0},{1,0},{2,0},{2,1},{2,2},{3,0},{3,2},{4,0},{4,2}};
-	const static int fridayF[][2] = {{0,0},{0,1},{0,2},{1,0},{2,0},{2,1},{2,2},{3,0},{4,0}}; 
-	const static int fridayr[][2] = {{2,0},{2,1},{2,2},{3,0},{4,0}}; 	
-	const static int saturdaya[][2] = {{2,1},{2,2},{3,0},{3,2},{4,1},{4,2}};
-	
+int doSpacing(int currentColumn){
+	if(currentColumn > COLUMNCOUNT){
+				shiftLeft();
+				shiftLeft();  
+				currentColumn = COLUMNCOUNT;
+	} else if (currentColumn == COLUMNCOUNT){
+		shiftLeft();  
+	} else{ 
+		++currentColumn;
+	}
+	return currentColumn;
+}
+
+void printDayOfWeek(int day, const int PRINT_ROW, int PRINT_COLUMN, const CRGB colorScheme[2]){
+
 	switch(day){
 		case 0:	//sunday
-			printToDisplay(sunsatS, sizeof(sunsatS)/sizeof(sunsatS[0]), PRINTROW, printColumn, colorScheme[0], false);
-			printToDisplay(suntueu, sizeof(suntueu)/sizeof(suntueu[0]), PRINTROW, printColumn+3, colorScheme[1], false);
+			printToDisplay(getCharacterImage('S'), PRINT_ROW, PRINT_COLUMN, colorScheme[0]);
+			printToDisplay(getCharacterImage('u'), PRINT_ROW, PRINT_COLUMN + 3, colorScheme[1]);
 			break;
 		case 1:	//monday 
-			printToDisplay(mondayM, sizeof(mondayM)/sizeof(mondayM[0]), PRINTROW, printColumn, colorScheme[0], false);
-			printToDisplay(mondayo, sizeof(mondayo)/sizeof(mondayo[0]), PRINTROW, printColumn+3, colorScheme[1], false);
+			printToDisplay(getCharacterImage('M'), PRINT_ROW, PRINT_COLUMN, colorScheme[0]);
+			printToDisplay(getCharacterImage('o'), PRINT_ROW, PRINT_COLUMN + 3, colorScheme[1]);
 			break;
 		case 2:	//tuesday 
-			printToDisplay(tuethursT, sizeof(tuethursT)/sizeof(tuethursT[0]), PRINTROW, printColumn, colorScheme[0], false);
-			printToDisplay(suntueu, sizeof(suntueu)/sizeof(suntueu[0]), PRINTROW, printColumn+3, colorScheme[1], false);
+			printToDisplay(getCharacterImage('T'), PRINT_ROW, PRINT_COLUMN, colorScheme[0]);
+			printToDisplay(getCharacterImage('u'), PRINT_ROW, PRINT_COLUMN + 3, colorScheme[1]);
 			break;
 		case 3:	//wednesday 
-			printToDisplay(wednesdayW, sizeof(wednesdayW)/sizeof(wednesdayW[0]), PRINTROW, printColumn, colorScheme[0], false);
-			printToDisplay(wednesdayd, sizeof(wednesdayd)/sizeof(wednesdayd[0]), PRINTROW, printColumn+3, colorScheme[1], false);
+			printToDisplay(getCharacterImage('W'), PRINT_ROW, PRINT_COLUMN, colorScheme[0]);
+			printToDisplay(getCharacterImage('d'), PRINT_ROW, PRINT_COLUMN + 3, colorScheme[1]);
 			break;
 		case 4:	//thursday 
-			printToDisplay(tuethursT, sizeof(tuethursT)/sizeof(tuethursT[0]), PRINTROW, printColumn, colorScheme[0], false);
-			printToDisplay(thursdayh, sizeof(thursdayh)/sizeof(thursdayh[0]), PRINTROW, printColumn+3, colorScheme[1], false);
+			printToDisplay(getCharacterImage('T'), PRINT_ROW, PRINT_COLUMN, colorScheme[0]);
+			printToDisplay(getCharacterImage('h'), PRINT_ROW, PRINT_COLUMN + 3, colorScheme[1]);
 			break;
 		case 5:	//friday
-			printToDisplay(fridayF, sizeof(fridayF)/sizeof(fridayF[0]), PRINTROW, printColumn, colorScheme[0], false);
-			printToDisplay(fridayr, sizeof(fridayr)/sizeof(fridayr[0]), PRINTROW, printColumn+3, colorScheme[1], false);
+			printToDisplay(getCharacterImage('F'), PRINT_ROW, PRINT_COLUMN, colorScheme[0]);
+			printToDisplay(getCharacterImage('r'), PRINT_ROW, PRINT_COLUMN + 3, colorScheme[1]);
 			break;
 		case 6:	//saturday 
-			printToDisplay(sunsatS, sizeof(sunsatS)/sizeof(sunsatS[0]), PRINTROW, printColumn, colorScheme[0], false);
-			printToDisplay(saturdaya, sizeof(saturdaya)/sizeof(saturdaya[0]), PRINTROW, printColumn+3, colorScheme[1], false);
+			printToDisplay(getCharacterImage('S'), PRINT_ROW, PRINT_COLUMN, colorScheme[0]);
+			printToDisplay(getCharacterImage('a'), PRINT_ROW, PRINT_COLUMN + 3, colorScheme[1]);
 			break;
 	}
 }
-
-void printToDisplay(const int number[][2], int count, const int PRINTROW, int printColumn, CRGB color, bool shouldSpace){
-  
-	int printWidth = (count > 5)? 3 : 1;  // symbol or number?   [assuming symbols only occupy one line ie 5 pixels]
-
-	if(shouldSpace)
-		++printWidth;
-		
-	int relativeRow, relativeColumn;
+    
+int printToDisplay(byte* image, const int PRINT_ROW, const int PRINT_COLUMN, CRGB PRINT_COLOR){
+	int filled_lines = 0, printing_column = PRINT_COLUMN;
 	int i, j;
-	for(i = 0; i < printWidth; ++i){
-    
-		if(printColumn > COLUMNCOUNT){
-			shiftLeft();
-			printColumn = 16;
+	for (j = 0; j < CHAR_WIDTH; ++j){
+		bool emptyLine = true;
+
+		for(i = 0; i < CHAR_HEIGHT; ++ i){
+			if (get_var(image + i * CHAR_WIDTH + j) == 1){
+				if(emptyLine){
+					if (printing_column > COLUMNCOUNT){
+						shiftLeft();
+						printing_column = COLUMNCOUNT;
+					}
+				emptyLine = false;
+				//clear line
+				for (int clear_pixel = 0; clear_pixel < CHAR_HEIGHT; ++clear_pixel)
+					leds[handleCoordinates(PRINT_ROW + clear_pixel, printing_column)] = CRGB::Black;
+				}
+				
+				leds[handleCoordinates(PRINT_ROW + i, printing_column)] = PRINT_COLOR;
+			}
 		}
-   
-		//clear column before printing. 5 is height.
-		for(j = 0; j < 5; ++j)
-			leds[handleCoordinates(PRINTROW + j, printColumn)] = CRGB::Black; 
-    
-		for(j = 0; j < count; ++j){
-			relativeRow = number[j][0];
-			relativeColumn = number[j][1];
-			if(relativeColumn == i){
-				Serial.println("Printed at" + String(PRINTROW + relativeRow)+ ", "+ String(printColumn));
-				leds[handleCoordinates(PRINTROW + relativeRow, printColumn)] = color;
-			}    
+
+		if(!emptyLine){
+			++filled_lines;
+			++printing_column;
+			FastLED.show();
+			delay(PRINT_DELAY);
 		}
-    
-		FastLED.show();
-		delay(PRINTDELAY);
-		++printColumn;;
 	}
+	return filled_lines;
 }
 
 void shiftLeft(){
 	int i, j;
-	for(i = 1; i < COLUMNCOUNT; ++i)
+	for(i = 1; i < COLUMNCOUNT; ++i){
 		for(j = 1; j <= ROWCOUNT; ++j)
 			leds[handleCoordinates(j, i)] = leds[handleCoordinates(j, i + 1)];
+	}
 
 	for(j = 1; j <= ROWCOUNT; ++j)
 		leds[handleCoordinates(j, COLUMNCOUNT)] = CRGB::Black;
-      
-	Serial.println("Matrix leftshifted");    
+    
 }  
   
 void doAnimation1(){
@@ -545,21 +567,21 @@ void doAnimation1(){
 			if(dataString.length() > 0) //if any thing is received
 				break;
 		for(i=0;i<=7;++i){
-			drawbox(rowup-i,rowdown+i,colleft-i,colright+i,colors[i]);
+			drawBox(rowup-i,rowdown+i,colleft-i,colright+i,colors[i]);
 			FastLED.show();
 			delay(50);
     
-			drawbox(rowup-i,rowdown+i,colleft-i,colright+i,CRGB::Black);
+			drawBox(rowup-i,rowdown+i,colleft-i,colright+i,CRGB::Black);
 		}
     
 		for(i=6;i>=0;--i){
-			drawbox(rowup - i,rowdown + i,colleft - i,colright + i,colors[i]);
+			drawBox(rowup - i,rowdown + i,colleft - i,colright + i,colors[i]);
 			FastLED.show();
 			delay(50);
     
-			drawbox(rowup-i,rowdown+i,colleft-i,colright+i,CRGB::Black);
+			drawBox(rowup-i,rowdown+i,colleft-i,colright+i,CRGB::Black);
 		}
-    }
+  }
 }
 
 void doAnimation2(){
@@ -574,7 +596,7 @@ void doAnimation2(){
 			break;
       
 		for(i=0;i<=7;++i){
-			drawbox(rowup-i,rowdown+i,colleft-i,colright+i,colors[i]);
+			drawBox(rowup-i,rowdown+i,colleft-i,colright+i,colors[i]);
 			FastLED.show();
 			delay(50);
 		}
@@ -582,151 +604,11 @@ void doAnimation2(){
 		delay(100);
 		
 		for(i=7; i>=0;--i){
-			drawbox(rowup-i,rowdown+i,colleft-i,colright+i,CRGB::Black);
+			drawBox(rowup-i,rowdown+i,colleft-i,colright+i,CRGB::Black);
 			FastLED.show();
 			delay(50);
 		}
     }
-}
-
-void drawClock(){
-	clearall();
-
-	CRGB colorBoundary = CRGB::Brown, colorHands = CRGB::LawnGreen, colorMarkings = CRGB::DarkGray, colorLoad = CRGB::Yellow;
-
-	//circle
-	leds[handleCoordinates(2,5)] = colorBoundary;
-	leds[handleCoordinates(2,6)] = colorBoundary;
-	leds[handleCoordinates(2,7)] = colorBoundary;
-	leds[handleCoordinates(2,8)] = colorBoundary;
-	leds[handleCoordinates(2,9)] = colorBoundary;
-	leds[handleCoordinates(2,10)] = colorBoundary;
-	leds[handleCoordinates(2,11)] = colorBoundary;
-	leds[handleCoordinates(3,4)] = colorBoundary;
-	leds[handleCoordinates(3,5)] = colorBoundary;
-	leds[handleCoordinates(3,11)] = colorBoundary;
-	leds[handleCoordinates(3,12)] = colorBoundary;
-	leds[handleCoordinates(4,3)] = colorBoundary;
-	leds[handleCoordinates(4,4)] = colorBoundary;
-	leds[handleCoordinates(4,12)] = colorBoundary;
-	leds[handleCoordinates(4,13)] = colorBoundary;
-	leds[handleCoordinates(5,2)] = colorBoundary;
-	leds[handleCoordinates(5,3)] = colorBoundary;
-	leds[handleCoordinates(5,13)] = colorBoundary;
-	leds[handleCoordinates(5,14)] = colorBoundary;
-	leds[handleCoordinates(6,2)] = colorBoundary;
-	leds[handleCoordinates(6,14)] = colorBoundary;
-	leds[handleCoordinates(7,2)] = colorBoundary;
-	leds[handleCoordinates(7,14)] = colorBoundary;
-	leds[handleCoordinates(8,2)] = colorBoundary;
-	leds[handleCoordinates(8,14)] = colorBoundary;
-	leds[handleCoordinates(9,2)] = colorBoundary;
-	leds[handleCoordinates(9,14)] = colorBoundary;
-	leds[handleCoordinates(10,2)] = colorBoundary;
-	leds[handleCoordinates(10,14)] = colorBoundary;
-	leds[handleCoordinates(11,2)] = colorBoundary;
-	leds[handleCoordinates(11,3)] = colorBoundary;
-	leds[handleCoordinates(11,13)] = colorBoundary;
-	leds[handleCoordinates(11,14)] = colorBoundary;
-	leds[handleCoordinates(12,3)] = colorBoundary;
-	leds[handleCoordinates(12,4)] = colorBoundary;
-	leds[handleCoordinates(12,12)] = colorBoundary;
-	leds[handleCoordinates(12,13)] = colorBoundary;
-	leds[handleCoordinates(13,4)] = colorBoundary;
-	leds[handleCoordinates(13,5)] = colorBoundary;
-	leds[handleCoordinates(13,11)] = colorBoundary;
-	leds[handleCoordinates(13,12)] = colorBoundary;
-	leds[handleCoordinates(14,5)] = colorBoundary;
-	leds[handleCoordinates(14,6)] = colorBoundary;
-	leds[handleCoordinates(14,7)] = colorBoundary;
-	leds[handleCoordinates(14,8)] = colorBoundary;
-	leds[handleCoordinates(14,9)] = colorBoundary;
-	leds[handleCoordinates(14,10)] = colorBoundary;
-	leds[handleCoordinates(14,11)] = colorBoundary;
-
-
-	//markings
-	leds[handleCoordinates(3,8)] = colorMarkings;
-	leds[handleCoordinates(8,3)] = colorMarkings;
-	leds[handleCoordinates(13,8)] = colorMarkings;
-	leds[handleCoordinates(8,13)] = colorMarkings;
-
-	//hands
-
-	leds[handleCoordinates(4,8)] = colorHands;
-	leds[handleCoordinates(5,8)] = colorHands;
-	leds[handleCoordinates(6,8)] = colorHands;
-	leds[handleCoordinates(7,8)] = colorHands;
-	leds[handleCoordinates(8,8)] = colorHands;
-	leds[handleCoordinates(8,9)] = colorHands;
-	leds[handleCoordinates(8,10)] = colorHands;
-	leds[handleCoordinates(8,11)] = colorHands;
-
-	FastLED.show();
-	delay(1000);
-
-	for(int i = 1; i < ROWCOUNT - 1; i += 2){
-		leds[handleCoordinates(i, COLUMNCOUNT)] = colorLoad;
-		leds[handleCoordinates(i+1, COLUMNCOUNT)] = colorLoad;
-		FastLED.show();
-		if(switchUpdateCheck())
-			return;
-		delay(500);
-	}
-}
-
-void drawApp(){
-	clearall();
-
-	CRGB colorBoundary = CRGB::White, colorAndroid = CRGB::LawnGreen, colorButton = CRGB::DarkGray, colorLoad = CRGB::Brown;
-
-	//boundary
-	drawbox(2, 14, 5, 12, colorBoundary);
-
-	//android
-	leds[handleCoordinates(3,8)] = colorAndroid;
-	leds[handleCoordinates(3,9)] = colorAndroid;
-	leds[handleCoordinates(4,7)] = colorAndroid;
-	leds[handleCoordinates(4,8)] = colorAndroid;
-	leds[handleCoordinates(4,9)] = colorAndroid;
-	leds[handleCoordinates(4,10)] = colorAndroid;
-	leds[handleCoordinates(5,7)] = colorAndroid;
-	leds[handleCoordinates(5,8)] = colorAndroid;
-	leds[handleCoordinates(5,9)] = colorAndroid;
-	leds[handleCoordinates(5,10)] = colorAndroid;
-	leds[handleCoordinates(6,6)] = colorAndroid;
-	leds[handleCoordinates(6,7)] = colorAndroid;
-	leds[handleCoordinates(6,8)] = colorAndroid;
-	leds[handleCoordinates(6,9)] = colorAndroid;
-	leds[handleCoordinates(6,10)] = colorAndroid;
-	leds[handleCoordinates(6,11)] = colorAndroid;
-	leds[handleCoordinates(7,7)] = colorAndroid;
-	leds[handleCoordinates(7,8)] = colorAndroid;
-	leds[handleCoordinates(7,9)] = colorAndroid;
-	leds[handleCoordinates(7,10)] = colorAndroid;
-	leds[handleCoordinates(8,7)] = colorAndroid;
-	leds[handleCoordinates(8,8)] = colorAndroid;
-	leds[handleCoordinates(8,9)] = colorAndroid;
-	leds[handleCoordinates(8,10)] = colorAndroid;
-	leds[handleCoordinates(9,7)] = colorAndroid;
-	leds[handleCoordinates(9,10)] = colorAndroid;
-	leds[handleCoordinates(10,7)] = colorAndroid;
-	leds[handleCoordinates(10,10)] = colorAndroid;
-
-	//button
-	drawbox(12, 13, 8, 9, colorButton);
-
-	FastLED.show();
-	delay(1000);
-
-	for(int i = 1; i < ROWCOUNT - 1; i += 2){
-		leds[handleCoordinates(i, COLUMNCOUNT)] = colorLoad;
-		leds[handleCoordinates(i+1, COLUMNCOUNT)] = colorLoad;
-		FastLED.show();
-		if(switchUpdateCheck())
-			return;
-		delay(500);
-	}
 }
 
 bool switchUpdateCheck(){
@@ -739,4 +621,236 @@ bool switchUpdateCheck(){
 		return true;
 	}
 	return false;
+}
+
+
+const byte clock_circle[][2] PROGMEM = {{2, 5}, {2, 6}, {2, 7}, {2, 8}, {2, 9}, {2, 10}, {2, 11}, {3, 4}, {3, 5}, {3, 11}, {3, 12}, 
+	{4, 3}, {4, 4}, {4, 12}, {4, 13}, {5, 2}, {5, 3}, {5, 13}, {5, 14}, {6, 2}, {6, 14}, {7, 2}, {7, 14}, {8, 2}, {8, 14}, {9, 2}, 
+	{9,14}, {10, 2}, {10, 14}, {11, 2}, {11, 3}, {11, 13}, {11, 14}, {12, 3}, {12, 4}, {12, 12}, {12, 13}, {13, 4}, {13, 5}, 
+	{13, 11}, {13, 12}, {14, 5}, {14, 6}, {14, 7}, {14, 8}, {14 ,9}, {14, 10}, {14, 11}};
+const byte clock_markings[][2] PROGMEM = {{3, 8}, {8, 3}, {13, 8}, {8, 13}};
+const byte clock_hands[][2] PROGMEM = {{4, 8}, {5, 8}, {6, 8}, {7, 8}, {8, 8}, {8, 9}, {8, 10}, {8, 11}};
+
+void drawClock(){
+	clearAll();
+
+	CRGB colorBoundary = CRGB::Brown, colorHands = CRGB::LawnGreen, colorMarkings = CRGB::DarkGray, colorLoad = CRGB::Yellow;
+	int i, size;
+
+	//circle
+	size = sizeof(clock_circle)/sizeof(clock_circle[0]);
+	for(i = 0; i < size; ++i){
+		int r = get_var(&(clock_circle[i][0])), c = get_var(&(clock_circle[i][1]));
+		leds[handleCoordinates(r, c)] = colorBoundary;
+	}
+	
+
+	//markings
+	size = sizeof(clock_markings)/sizeof(clock_markings[0]);
+	for(i = 0; i < size; ++i){
+		int r = get_var(&(clock_markings[i][0])), c = get_var(&(clock_markings[i][1]));
+		leds[handleCoordinates(r, c)] = colorMarkings;
+	}
+
+	//hands
+	size = sizeof(clock_hands)/sizeof(clock_hands[0]);
+	for(i = 0; i < size; ++i){
+		int r = get_var(&(clock_hands[i][0])), c = get_var(&(clock_hands[i][1]));
+		leds[handleCoordinates(r, c)] = colorHands;
+	}
+
+	FastLED.show();
+	delay(1000);
+
+	for(i = 1; i < ROWCOUNT - 1; i += 2){
+		leds[handleCoordinates(i, COLUMNCOUNT)] = colorLoad;
+		leds[handleCoordinates(i+1, COLUMNCOUNT)] = colorLoad;
+		FastLED.show();
+		if(switchUpdateCheck())
+			return;
+		delay(500);
+	}
+}
+
+const byte app_android[][2] PROGMEM = {{3, 8}, {3, 9}, {4, 7}, {4, 8}, {4, 9}, {4, 10}, {5, 7}, {5, 8}, {5, 9}, {5, 10}, {6, 6}, 
+	{6, 7}, {6, 8}, {6, 9}, {6, 10}, {6, 11}, {7, 7}, {7, 8}, {7, 9}, {7, 10}, {8, 7}, {8, 8}, {8, 9}, {8, 10}, {9, 7}, {9, 10}, 
+	{10, 7}, {10, 10}};
+
+void drawApp(){
+	clearAll();
+
+	CRGB colorBoundary = CRGB::White, colorAndroid = CRGB::LawnGreen, colorButton = CRGB::DarkGray, colorLoad = CRGB::Brown;
+	int i;
+
+	//boundary
+	drawBox(2, 14, 5, 12, colorBoundary);
+
+	//android
+	int android_size = sizeof(app_android)/sizeof(app_android[0]);
+	for(i = 0; i < android_size; ++i){
+		int r = get_var(&(app_android[i][0])), c = get_var(&(app_android[i][1]));
+		leds[handleCoordinates(r, c)] = colorAndroid;
+	}
+
+	//button
+	drawBox(12, 13, 8, 9, colorButton);
+
+	FastLED.show();
+	delay(1000);
+
+	for(i = 1; i < ROWCOUNT - 1; i += 2){
+		leds[handleCoordinates(i, COLUMNCOUNT)] = colorLoad;
+		leds[handleCoordinates(i+1, COLUMNCOUNT)] = colorLoad;
+		FastLED.show();
+		if(switchUpdateCheck())
+			return;
+		delay(500);
+	}
+}
+
+//SAVE CHARACTERS TO PROGRAM MEMORY
+
+const byte char_A[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {1, 0, 1}, {1, 1, 1}, {1, 0, 1}, {1, 0, 1}};
+const byte char_B[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 0}, {1, 0, 1}, {1, 1, 1}, {1, 0, 1}, {1, 1, 0}};
+const byte char_C[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {1, 0, 0}, {1, 0, 0}, {1, 0, 0}, {1, 1, 1}};
+const byte char_D[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 0}, {1, 0, 1}, {1, 0, 1}, {1, 0, 1}, {1, 1, 0}};
+const byte char_E[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {1, 0, 0}, {1, 1, 1}, {1, 0, 0}, {1, 1, 1}};
+const byte char_F[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {1, 0, 0}, {1, 1, 0}, {1, 0, 0}, {1, 0, 0}};
+const byte char_G[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {1, 0, 0}, {1, 0, 1}, {1, 0, 1}, {1, 1, 1}};
+const byte char_H[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 0, 1}, {1, 0, 1}, {1, 1, 1}, {1, 0, 1}, {1, 0, 1}};
+const byte char_I[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {0, 1, 0}, {0, 1, 0}, {0, 1, 0}, {1, 1, 1}};
+const byte char_J[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {0, 1, 0}, {0, 1, 0}, {1, 1, 0}, {0, 1, 0}};
+const byte char_K[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 0, 1}, {1, 1, 0}, {1, 0, 0}, {1, 1, 0}, {1, 0, 1}};
+const byte char_L[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 0, 0}, {1, 0, 0}, {1, 0, 0}, {1, 0, 0}, {1, 1, 1}};
+const byte char_M[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 0, 1}, {1, 1, 1}, {1, 1, 1}, {1, 0, 1}, {1, 0, 1}};
+const byte char_N[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {1, 0, 1}, {1, 0, 1}, {1, 0, 1}, {1, 0, 1}};
+const byte char_O[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {1, 0, 1}, {1, 0, 1}, {1, 0, 1}, {1, 1, 1}};
+const byte char_P[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {1, 0, 1}, {1, 1, 1}, {1, 0, 0}, {1, 0, 0}};
+const byte char_Q[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {1, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}};
+const byte char_R[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {1, 0, 1}, {1, 1, 0}, {1, 0, 1}, {1, 0, 1}};
+const byte char_S[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {1, 0, 0}, {1, 1, 1}, {0, 0, 1}, {1, 1, 1}};
+const byte char_T[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {0, 1, 0}, {0, 1, 0}, {0, 1, 0}, {0, 1, 0}};
+const byte char_U[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 0, 1}, {1, 0, 1}, {1, 0, 1}, {1, 0, 1}, {1, 1, 1}};
+const byte char_V[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 0, 1}, {1, 0, 1}, {1, 0, 1}, {1, 0, 1}, {0, 1, 0}};
+const byte char_W[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 0, 1}, {1, 0, 1}, {1, 1, 1}, {1, 1, 1}, {1, 0, 1}};
+const byte char_X[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 0, 1}, {1, 0, 1}, {0, 1, 0}, {1, 0, 1}, {1, 0, 1}};
+const byte char_Y[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 0}, {0, 1, 0}};
+const byte char_Z[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {0, 0, 1}, {1, 1, 1}, {1, 0, 0}, {1, 1, 1}};
+const byte char_0[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {1, 0, 1}, {1, 0, 1}, {1, 0, 1}, {1, 1, 1}};
+const byte char_1[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 1, 0}, {1, 1, 0}, {0, 1, 0}, {0, 1, 0}, {1, 1, 1}};
+const byte char_2[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {0, 0, 1}, {0, 1, 0}, {1, 0, 0}, {1, 1, 1}};
+const byte char_3[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {0, 0, 1}, {1, 1, 1}, {0, 0, 1}, {1, 1, 1}};
+const byte char_4[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 1}, {0, 1, 1}, {1, 0, 1}, {1, 1, 1}, {0, 0, 1}};
+const byte char_5[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {1, 0, 0}, {1, 1, 0}, {0, 0, 1}, {1, 1, 0}};
+const byte char_6[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {1, 0, 0}, {1, 1, 1}, {1, 0, 1}, {1, 1, 1}};
+const byte char_7[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {0, 0, 1}, {0, 1, 0}, {1, 0, 0}, {1, 0, 0}};
+const byte char_8[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {1, 0, 1}, {1, 1, 1}, {1, 0, 1}, {1, 1, 1}};
+const byte char_9[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 1, 1}, {1, 0, 1}, {1, 1, 1}, {0, 0, 1}, {1, 1, 1}};
+const byte char_dot[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 1, 0}};
+const byte char_colon[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {0, 1, 0}, {0, 0, 0}, {0, 1, 0}, {0, 0, 0}};
+const byte char_a[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {0, 0, 0}, {0, 1, 1}, {1, 0, 1}, {0, 1, 1}};
+const byte char_b[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 0, 0}, {1, 0, 0}, {1, 1, 1}, {1, 0, 1}, {1, 1, 1}};
+const byte char_c[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {0, 0, 0}, {1, 1, 1}, {1, 0, 0}, {1, 1, 1}};
+const byte char_d[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 1}, {0, 0, 1}, {1, 1, 1}, {1, 0, 1}, {1, 1, 1}};
+const byte char_e[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {0, 1, 0}, {1, 1, 1}, {1, 0, 0}, {1, 1, 1}};
+const byte char_f[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 1, 1}, {0, 1, 0}, {1, 1, 1}, {0, 1, 0}, {0, 1, 0}};
+const byte char_g[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {0, 1, 0}, {1, 1, 1}, {0, 0, 1}, {1, 1, 1}};
+const byte char_h[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 0, 0}, {1, 0, 0}, {1, 1, 1}, {1, 0, 1}, {1, 0, 1}};
+const byte char_i[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 1, 0}, {0, 0, 0}, {0, 1, 0}, {0, 1, 0}, {0, 1, 0}};
+const byte char_j[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 1, 0}, {0, 0, 0}, {0, 1, 0}, {1, 1, 0}, {0, 1, 0}};
+const byte char_k[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{1, 0, 0}, {1, 0, 0}, {1, 0, 1}, {1, 1, 0}, {1, 0, 1}};
+const byte char_l[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 1, 0}, {0, 1, 0}, {0, 1, 0}, {0, 1, 0}, {0, 1, 0}};
+const byte char_m[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}, {1, 0, 1}};
+const byte char_n[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {0, 0, 0}, {1, 1, 1}, {1, 0, 1}, {1, 0, 1}};
+const byte char_o[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {0, 0, 0}, {1, 1, 1}, {1, 0, 1}, {1, 1, 1}};
+const byte char_p[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {1, 1, 0}, {1, 1, 1}, {1, 0, 0}, {1, 0, 0}};
+const byte char_q[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {1, 1, 0}, {1, 1, 0}, {0, 1, 1}, {0, 1, 0}};
+const byte char_r[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {0, 0, 0}, {1, 1, 1}, {1, 0, 0}, {1, 0, 0}};
+const byte char_s[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {0, 1, 1}, {1, 1, 0}, {0, 1, 1}, {1, 1, 0}};
+const byte char_t_[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 1, 0}, {0, 1, 0}, {1, 1, 1}, {0, 1, 0}, {0, 1, 1}};
+const byte char_u[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {0, 0, 0}, {1, 0, 1}, {1, 0, 1}, {1, 1, 1}};
+const byte char_v[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {0, 0, 0}, {1, 0, 1}, {1, 0, 1}, {0, 1, 0}};
+const byte char_w[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {0, 0, 0}, {1, 0, 1}, {1, 1, 1}, {1, 1, 1}};
+const byte char_x[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {0, 0, 0}, {1, 0, 1}, {0, 1, 0}, {1, 0, 1}};
+const byte char_y[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {1, 0, 1}, {1, 0, 1}, {0, 1, 0}, {0, 1, 0}};
+const byte char_z[CHAR_HEIGHT][CHAR_WIDTH] PROGMEM= {{0, 0, 0}, {0, 0, 0}, {1, 1, 1}, {0, 1, 0}, {1, 1, 1}};
+
+byte* getCharacterImage(char c){
+  switch(c){
+    case 'A': return (byte*)char_A;
+    case 'B': return (byte*)char_B;
+    case 'C': return (byte*)char_C;
+    case 'D': return (byte*)char_D;
+    case 'E': return (byte*)char_E;
+    case 'F': return (byte*)char_F;
+    case 'G': return (byte*)char_G;
+    case 'H': return (byte*)char_H;
+    case 'I': return (byte*)char_I;
+    case 'J': return (byte*)char_J;
+    case 'K': return (byte*)char_K;
+    case 'L': return (byte*)char_L;
+    case 'M': return (byte*)char_M;
+    case 'N': return (byte*)char_N;
+    case 'O': return (byte*)char_O;
+    case 'P': return (byte*)char_P;
+    case 'Q': return (byte*)char_Q;
+    case 'R': return (byte*)char_R;
+    case 'S': return (byte*)char_S;
+    case 'T': return (byte*)char_T;
+    case 'U': return (byte*)char_U;
+    case 'V': return (byte*)char_V;
+    case 'W': return (byte*)char_W;
+    case 'X': return (byte*)char_X;
+    case 'Y': return (byte*)char_Y;
+    case 'Z': return (byte*)char_Z;
+	case 'a': return (byte*)char_a;
+	case 'b': return (byte*)char_b;
+	case 'c': return (byte*)char_c;
+	case 'd': return (byte*)char_d;
+	case 'e': return (byte*)char_e;
+	case 'f': return (byte*)char_f;
+	case 'g': return (byte*)char_g;
+	case 'h': return (byte*)char_h;
+	case 'i': return (byte*)char_i;
+	case 'j': return (byte*)char_j;
+	case 'k': return (byte*)char_k;
+	case 'l': return (byte*)char_l;
+	case 'm': return (byte*)char_m;
+	case 'n': return (byte*)char_n;
+	case 'o': return (byte*)char_o;
+	case 'p': return (byte*)char_p;
+	case 'q': return (byte*)char_q;
+	case 'r': return (byte*)char_r;
+	case 's': return (byte*)char_s;
+	case 't': return (byte*)char_t_;
+	case 'u': return (byte*)char_u;
+	case 'v': return (byte*)char_v;
+	case 'w': return (byte*)char_w;
+	case 'x': return (byte*)char_x;
+	case 'y': return (byte*)char_y;
+	case 'z': return (byte*)char_z;
+    case 0: 
+    case '0': return (byte*)char_0;
+    case 1:
+    case '1': return (byte*)char_1;
+    case 2:
+	  case '2': return (byte*)char_2;
+    case 3:
+    case '3': return (byte*)char_3;
+    case 4:
+    case '4': return (byte*)char_4;
+    case 5:
+    case '5': return (byte*)char_5;
+    case 6:
+    case '6': return (byte*)char_6;
+    case 7:
+    case '7': return (byte*)char_7;
+    case 8:
+    case '8': return (byte*)char_8;
+    case 9:
+    case '9': return (byte*)char_9;
+    default:
+    case '.': return (byte*)char_dot;
+    case ':': return (byte*)char_colon;
+  }
 }

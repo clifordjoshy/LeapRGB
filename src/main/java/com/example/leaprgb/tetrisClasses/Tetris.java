@@ -52,7 +52,6 @@ public class Tetris extends AsyncTaskLoader<Integer> {
         for(i = 1; i <= 15; ++i){
             LED.setlight(i, LOWERBOUND_WALL, colorWall);
             LED.setlight(i, UPPERBOUND_WALL, colorWall);
-            SystemClock.sleep(10);
         }
           //process reqs
         LED.show();
@@ -134,9 +133,12 @@ public class Tetris extends AsyncTaskLoader<Integer> {
                 //go through all possible rows in coordinates to check for possible finish
                 for(Coordinate c : currentPiece.getUnits()) {
                     lineCleared = true;
-                    for (int check=0; check < FIELDWIDTH; ++check)
-                        if (!field.get(c.y-1)[check])
+                    for (int check=0; check < FIELDWIDTH; ++check) {
+                        if (!field.get(c.y - 1)[check]) {
                             lineCleared = false;
+                            break;
+                        }
+                    }
 
                     //the current line is filled
                     if(lineCleared){
@@ -151,7 +153,7 @@ public class Tetris extends AsyncTaskLoader<Integer> {
                         for(int r = c.y -1; r >0; --r)   //empty row at 0
                             for(int s = 0; s < FIELDWIDTH; ++s)
                                 if(field.get(r)[s])
-                                    LED.setlight(r+1, s+1+LOWERBOUND_WALL, colorPositioned );
+                                    LED.setlight(r+1, s+1+LOWERBOUND_WALL, colorPositioned);
                         LED.show();
                     }
                 }
@@ -160,6 +162,7 @@ public class Tetris extends AsyncTaskLoader<Integer> {
             }
         }
         LED.clear();
+        LED.show();
         return score;
     }
 
@@ -200,18 +203,24 @@ public class Tetris extends AsyncTaskLoader<Integer> {
 
         if("LEFT".equals(direction)) {
             boolean isMovableLeft = true;
-            for (Coordinate c : currentPiece.getUnits())
-                if (c.x == LOWERBOUND_WALL + 1 || field.get(c.y - 1)[c.x - 2 - LOWERBOUND_WALL])
+            for (Coordinate c : currentPiece.getUnits()) {
+                if (c.x == LOWERBOUND_WALL + 1 || c.y == 0 || field.get(c.y - 1)[c.x - 2 - LOWERBOUND_WALL]) {
                     isMovableLeft = false;
+                    break;
+                }
+            }
             if (isMovableLeft)
                 moveDirection = "LEFT";
         }
 
         if("RIGHT".equals(direction)) {
             boolean isMovableRight = true;
-            for (Coordinate c : currentPiece.getUnits())
-                if (c.x == UPPERBOUND_WALL - 1 || field.get(c.y - 1)[c.x - LOWERBOUND_WALL])
+            for (Coordinate c : currentPiece.getUnits()) {
+                if (c.x == UPPERBOUND_WALL - 1 || c.y == 0 || field.get(c.y - 1)[c.x - LOWERBOUND_WALL]) {
                     isMovableRight = false;
+                    break;
+                }
+            }
             if (isMovableRight)
                 moveDirection = "RIGHT";
         }

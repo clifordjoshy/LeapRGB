@@ -54,13 +54,12 @@ public class Snake extends  AsyncTaskLoader<Integer> {
     public Integer loadInBackground() {
         isRunningAlready = true;
         for (Body b : body) {
+
             SystemClock.sleep(300);
             b.setlight(colorBody);
-            SystemClock.sleep(10);
             LED.show();
         }
         body.getLast().setlight(colorHead);
-        SystemClock.sleep(20);  //request processing time
         LED.show();
         SystemClock.sleep(DELAY);
 
@@ -122,7 +121,6 @@ public class Snake extends  AsyncTaskLoader<Integer> {
             if(isLoadInBackgroundCanceled())
                 break;  //turns off the led immediately .
 
-            SystemClock.sleep(20);  //any other reqs get handled
             LED.show();
             SystemClock.sleep(DELAY);
         }
