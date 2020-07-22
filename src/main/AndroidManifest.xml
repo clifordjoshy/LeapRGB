@@ -3,6 +3,8 @@
     package="com.example.leaprgb">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:allowBackup="true"
@@ -11,25 +13,27 @@
         android:roundIcon="@mipmap/rgb_icon_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name="com.example.leaprgb.animationClasses.AnimationActivity"
+        <activity android:name=".animationClasses.VisualizerActivity"></activity>
+        <activity
+            android:name=".animationClasses.AnimationActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name="com.example.leaprgb.tetrisClasses.TetrisActivity"
+            android:name=".tetrisClasses.TetrisActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name="com.example.leaprgb.flooditClasses.FloodItActivity"
+            android:name=".flooditClasses.FloodItActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name="com.example.leaprgb.manualconfigClasses.ManualConfigActivity"
+            android:name=".manualconfigClasses.ManualConfigActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name="com.example.leaprgb.pongClasses.PongActivity"
+            android:name=".pongClasses.PongActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name="com.example.leaprgb.snakeClasses.SnakeActivity"
+            android:name=".snakeClasses.SnakeActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name="com.example.leaprgb.MainActivity"
+            android:name=".MainActivity"
             android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

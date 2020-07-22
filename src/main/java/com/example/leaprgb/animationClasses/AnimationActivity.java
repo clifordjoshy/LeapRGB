@@ -1,6 +1,7 @@
 package com.example.leaprgb.animationClasses;
 
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.text.Editable;
@@ -31,6 +32,7 @@ public class AnimationActivity extends AppCompatActivity {
 
     public void onAnimationClick(View v) {
         if (LED.isConnected(true)) {
+//        if(true){[
             if (isAnimationRunning) {
                 LED.sendMessage("stop");
                 isAnimationRunning = false;
@@ -94,6 +96,11 @@ public class AnimationActivity extends AppCompatActivity {
                     });
                     d.setNegativeButton("CANCEL", null);
                     d.show();
+                    break;
+                case R.id.visualizerbutton:
+                    Intent in = new Intent(this, VisualizerActivity.class);
+                    startActivity(in);
+                    break;
             }
         }
         else

@@ -74,4 +74,29 @@
         app:layout_constraintEnd_toEndOf="@+id/animation1button"
         app:layout_constraintStart_toStartOf="@+id/animation1button"
         app:layout_constraintTop_toBottomOf="@+id/anitext1" />
+
+    <TextView
+        android:id="@+id/visualizertext"
+        android:layout_width="0dp"
+        android:layout_height="21dp"
+        android:text="Visualizer"
+        app:layout_constraintEnd_toEndOf="@+id/visualizerbutton"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:autoSizeTextType="uniform"
+        app:layout_constraintStart_toStartOf="@+id/visualizerbutton"
+        app:layout_constraintTop_toBottomOf="@+id/renderbutton" />
+
+    <ImageView
+        android:id="@+id/visualizerbutton"
+        android:layout_width="0dp"
+        android:layout_height="185dp"
+        android:gravity="center"
+        android:onClick="onAnimationClick"
+        android:padding="30dp"
+        android:src="@drawable/music_bar_pic"
+        android:textColor="#202020"
+        app:autoSizeTextType="uniform"
+        app:layout_constraintEnd_toEndOf="@+id/animation2button"
+        app:layout_constraintStart_toStartOf="@+id/animation2button"
+        app:layout_constraintTop_toTopOf="@+id/renderbutton" />
 </androidx.constraintlayout.widget.ConstraintLayout>

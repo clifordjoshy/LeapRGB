@@ -110,7 +110,6 @@ public abstract class LED {
     }
 
     public static void sendMessage(String msg){
-        Log.i("mylog "+msg.length(), msg);
         webSocketClient.send(msg);
     }
 

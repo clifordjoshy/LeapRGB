@@ -17,11 +17,11 @@ const int LEDBRIGHTNESS = 10, PRINT_DELAY = 150;
  NOTES
  * PASS THE HEXCODE WITHOUT '#' I.E ONLY THE HEX VALUE
  * DO THE WIRING ROWWISE ONLY
- * Defined Messages = [setlight, setoff, show, clear, clearrow, delay, render]
+ * Defined Messages = [setlight, setoff, show, clear, clearrow, delay, render, visualize]
  * Format :- Call/Row/Column/Hex     (as needed)
 */
 
-//USER-DEFINED FUNCTIONS
+//FUNCTIONS
 int handleCoordinates(int Row, int Column);
 void clearAll();
 bool switchUpdateCheck();
@@ -43,6 +43,7 @@ void clearRow(char *token_ptr);
 void doDelay(char *token_ptr);
 void renderText(char *token_ptr); 
 int doSpacing(int currentColumn);
+void startVisualizer();
 
 void doAnimation1();
 void doAnimation2();
@@ -208,7 +209,7 @@ void appModeMain() {
 
 			// Communication with the client
 			String dataString;
-      char *save_token_ptr;
+      		char *save_token_ptr;
 			char dataArray[300];
 			
 			while(client.connected()){
@@ -223,9 +224,9 @@ void appModeMain() {
 					
 					while (token != NULL) {
 
-            char *save_ptr_2;   ///to continue extracting from string
+						char *save_ptr_2;   ///to continue extracting from string
 						char* toCall = strtok_r(token, SUB_DELIM, &save_ptr_2);
-						
+						Serial.println(toCall);
 						if(strcmp(toCall, "setlight") == 0)
 							setLight(save_ptr_2);
 						else if(strcmp(toCall, "setoff") == 0)
@@ -234,15 +235,17 @@ void appModeMain() {
 							FastLED.show();
 						else if(strcmp(toCall, "clear") == 0)
 							clearAll();
-						else if(strcmp(toCall, "clearrow") ==0)
+						else if(strcmp(toCall, "clearrow") == 0)
 							clearRow(save_ptr_2);
-						else if(strcmp(toCall, "delay")==0)
+						else if(strcmp(toCall, "delay") == 0)
 							doDelay(save_ptr_2);
-						else if(strcmp(toCall, "render")==0)
+						else if(strcmp(toCall, "render") == 0)
 							renderText(save_ptr_2);
-						else if(strcmp(toCall, "animation1") ==0)
+						else if(strcmp(toCall, "visualize") == 0)
+							startVisualizer();
+						else if(strcmp(toCall, "animation1") == 0)
 							doAnimation1();
-						else if(strcmp(toCall, "animation2") ==0)
+						else if(strcmp(toCall, "animation2") == 0)
 							doAnimation2();
 
              token = strtok_r(NULL, MAIN_DELIM, &save_token_ptr);
@@ -264,7 +267,6 @@ void appModeMain() {
 		++notConnectedIterations;
 		if(notConnectedIterations > 150){
 			printIP(WiFi.localIP());
-			Serial.println("Done Printing IP");
 			delay(PRINT_DELAY);
 			clearAll();
 			notConnectedIterations = 0;
@@ -272,6 +274,36 @@ void appModeMain() {
 		delay(100);
 	}
   server.close();
+}
+
+//Receives subsequent messages and visualizes until 'stop' is received
+void startVisualizer(){
+	CRGB visualizerColors[COLUMNCOUNT] = {CRGB::White, CRGB::Indigo, CRGB::Blue, CRGB::Green, CRGB::Yellow, 
+		CRGB::Orange, CRGB::Red, CRGB::Magenta, CRGB::White, CRGB::Indigo, CRGB::Blue, CRGB::Green,
+		CRGB::Yellow, CRGB::Orange, CRGB::Red, CRGB ::Magenta};
+	String dataString;
+	char dataArray[300], *token_ptr, *token;
+
+	while(true){
+		dataString = webSocketServer.getData();
+		if (dataString.length() == 0)
+			continue;
+		dataString.toCharArray(dataArray, 300);
+		if(strcmp("stop", dataArray) == 0)
+			break;
+		token = strtok_r(dataArray, SUB_DELIM, &token_ptr);
+		for(int i = 1; i <= COLUMNCOUNT; ++i){
+			int bar_h = ROWCOUNT - atoi(token) + 1;
+			int j;
+			for(j = ROWCOUNT; j >= bar_h; --j)
+				leds[handleCoordinates(j, i)] = visualizerColors[i-1];
+			for(;j > 0; --j)
+				leds[handleCoordinates(j, i)] = CRGB::Black;
+			token = strtok_r(NULL, SUB_DELIM, &token_ptr);
+		}
+		
+		FastLED.show();
+    }
 }
 
 //Renders text in specified color
@@ -342,19 +374,18 @@ void setLight(char *token_ptr) {
 void setOff(char *token_ptr) {
 	int row, column;
 	char *dataValue;
-  
+
 	dataValue = strtok_r(NULL, SUB_DELIM, &token_ptr);
 	row = atoi(dataValue);
   
 	dataValue = strtok_r(NULL, SUB_DELIM, &token_ptr);
 	column = atoi(dataValue);
-  
+   
 	int ledno = handleCoordinates(row, column);
-	Serial.println("Turned off"+String(row)+" "+String(column));
 	leds[ledno] = CRGB::Black;
 }
 
-//Handles the Row and Column according to the wiring. Needed because wiring is L->R R->L .... [indexed fromm 1]
+//Handles the Row and Column according to the wiring. Needed because wiring is L->R R->L .... [indexed from 1]
 int handleCoordinates(int row, int column){
 	int ledno;
  
@@ -411,7 +442,6 @@ void clearRow(char *token_ptr){
 
 	for(int i = columnStart; i <= columnEnd; ++i)
 		leds[handleCoordinates(row, i)] = CRGB::Black;
-	FastLED.show();
 }
 
 void drawBox(int rowup, int rowdown, int colleft, int colright, CRGB color){
@@ -421,10 +451,10 @@ void drawBox(int rowup, int rowdown, int colleft, int colright, CRGB color){
 		leds[handleCoordinates(rowdown,i)] = color;
     }
 	
-	for(i = rowup+1; i < rowdown; ++i){
+	for(i = rowup + 1; i < rowdown; ++i){
 		leds[handleCoordinates(i,colleft)] = color;
 		leds[handleCoordinates(i,colright)] = color;
-    }   
+    }
 }
 
 void printIP(IPAddress ip){
@@ -554,34 +584,32 @@ void shiftLeft(){
 
 	for(j = 1; j <= ROWCOUNT; ++j)
 		leds[handleCoordinates(j, COLUMNCOUNT)] = CRGB::Black;
-    
 }  
   
 void doAnimation1(){
 	CRGB colors[8]={CRGB::White, CRGB::Violet, CRGB::Indigo, CRGB::Blue, CRGB::Green, CRGB::Yellow, CRGB::Orange, CRGB::Red};
-	int rowup=8,rowdown=8,colleft=8,colright=9;
+	const int rowup=8, rowdown=8, colleft=8, colright=9;
 	int i;
 	String dataString;
 	while(true){
 		dataString = webSocketServer.getData();
-			if(dataString.length() > 0) //if any thing is received
-				break;
-		for(i=0;i<=7;++i){
-			drawBox(rowup-i,rowdown+i,colleft-i,colright+i,colors[i]);
+		if(dataString.length() > 0) //if any thing is received
+			break;
+		for(i = 0; i <= 7; ++i){
+			drawBox(rowup - i, rowdown + i, colleft - i, colright + i, colors[i]);
 			FastLED.show();
 			delay(50);
-    
-			drawBox(rowup-i,rowdown+i,colleft-i,colright+i,CRGB::Black);
+
+			drawBox(rowup - i, rowdown + i, colleft - i, colright + i, CRGB::Black);
 		}
-    
-		for(i=6;i>=0;--i){
-			drawBox(rowup - i,rowdown + i,colleft - i,colright + i,colors[i]);
+		for(i = 6; i >= 0; --i){
+			drawBox(rowup - i, rowdown + i, colleft - i, colright + i, colors[i]);
 			FastLED.show();
 			delay(50);
-    
-			drawBox(rowup-i,rowdown+i,colleft-i,colright+i,CRGB::Black);
+			drawBox(rowup - i, rowdown + i, colleft - i, colright + i, CRGB::Black);
 		}
-  }
+	}
+	FastLED.show();		//to show the removal of middle block to black
 }
 
 void doAnimation2(){

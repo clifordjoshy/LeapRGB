@@ -150,7 +150,7 @@ public class Tetris extends AsyncTaskLoader<Integer> {
                         field.remove(c.y - 1);
                         field.addFirst(new boolean[FIELDWIDTH]);
 
-                        for(int r = c.y -1; r >0; --r)   //empty row at 0
+                        for(int r = c.y -1; r > 0; --r)   //empty row at 0
                             for(int s = 0; s < FIELDWIDTH; ++s)
                                 if(field.get(r)[s])
                                     LED.setlight(r+1, s+1+LOWERBOUND_WALL, colorPositioned);
