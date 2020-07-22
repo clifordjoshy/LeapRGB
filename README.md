@@ -1,5 +1,5 @@
 # LeapRGB
-A 16 x 15 grid of LEDs which serves as a clock, an arcade (with a bunch of classic games like Snake, Tetris, Pong and Flood-It!) all controllable from an Android app.
+A 16 x 15 grid of LEDs which serves as a clock, an arcade (with a bunch of classic games like Snake, Tetris, Pong and Flood-It!), a music visualizer all controllable from an Android app.
 
 Libraries Used:
 <ul>
